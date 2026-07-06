@@ -107,31 +107,106 @@
     .edit-grid { grid-template-columns: 110px 1fr; }
     .edit-grid > .edit-inspector { grid-column: 1 / -1; }
   }
-  @media (max-width: 767px) {
-    .sidebar { position:fixed; bottom:0; left:0; right:0; top:auto; width:100%; height:auto; border-right:none; border-top:1px solid #262626; z-index:40; padding:8px; backdrop-filter:blur(8px); background:rgba(10,10,10,.92); }
-    .sidebar-title { display:none; }
-    .sidebar-nav { display:flex; overflow-x:auto; gap:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
-    .sidebar-nav::-webkit-scrollbar { display:none; }
-    .nav-item { flex-direction:column; gap:4px; padding:8px 10px; font-size:11px; border-left:none; border-bottom:2px solid transparent; min-width:64px; flex-shrink:0; text-align:center; }
-    .nav-item.active { border-left:none; border-bottom-color:#3B82F6; }
-    .nav-item span.label { font-size:11px; }
-    .main { padding-bottom:96px; }
+  /* Mobile top bar (hidden on desktop) */
+  .mobile-topbar { display:none; }
+  .mobile-backdrop { display:none; }
+  @media (max-width: 899px) {
+    .mobile-topbar {
+      display:flex; align-items:center; gap:12px;
+      position:sticky; top:0; z-index:45;
+      padding:12px 16px;
+      background:rgba(10,10,10,.85);
+      backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+      border-bottom:1px solid #1f1f1f;
+    }
+    .mobile-menu-btn {
+      width:40px; height:40px; border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      background:#171717; border:1px solid #262626; color:#FAFAFA;
+      cursor:pointer; flex-shrink:0;
+    }
+    .mobile-menu-btn:active { transform:scale(.94); background:#1f1f1f; }
+    .mobile-brand {
+      display:flex; align-items:center; gap:10px; min-width:0;
+    }
+    .mobile-brand .logo {
+      width:36px; height:36px; border-radius:10px; flex-shrink:0;
+      background:linear-gradient(135deg,#3B82F6,#60A5FA);
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 4px 12px -2px rgba(59,130,246,.5);
+    }
+    .mobile-brand .name { font-size:15px; font-weight:600; letter-spacing:-.01em; }
+    .mobile-brand .sub { font-size:10px; color:#737373; margin-top:-2px; }
+
+    /* Sidebar becomes slide-in drawer */
+    .sidebar {
+      position:fixed; top:0; left:0; bottom:0;
+      width:min(320px, 86vw); height:100dvh;
+      z-index:60; padding:20px 16px 24px;
+      background:rgba(15,15,15,.98);
+      backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+      border-right:1px solid #262626;
+      transform:translateX(-105%);
+      transition:transform .3s cubic-bezier(.4,0,.2,1);
+      overflow-y:auto; -webkit-overflow-scrolling:touch;
+      box-shadow:20px 0 60px -20px rgba(0,0,0,.6);
+    }
+    .sidebar.open { transform:translateX(0); }
+    .mobile-backdrop {
+      display:block; position:fixed; inset:0; z-index:55;
+      background:rgba(0,0,0,.55); backdrop-filter:blur(2px);
+      opacity:0; pointer-events:none;
+      transition:opacity .3s ease;
+    }
+    .mobile-backdrop.open { opacity:1; pointer-events:auto; }
+
+    /* Drawer nav = 2-col tile grid */
+    .sidebar-nav {
+      display:grid !important; grid-template-columns:1fr 1fr; gap:8px;
+      margin-top:4px;
+    }
+    .nav-item {
+      flex-direction:column; align-items:center; justify-content:center;
+      gap:8px; padding:16px 8px; min-height:88px;
+      border-left:none !important;
+      background:#131313; border:1px solid #1f1f1f; border-radius:14px;
+      text-align:center; font-size:12px; color:#A3A3A3;
+    }
+    .nav-item svg { width:22px; height:22px; }
+    .nav-item.active {
+      background:linear-gradient(160deg, rgba(59,130,246,.18), rgba(59,130,246,.06));
+      border-color:rgba(59,130,246,.55);
+      color:#FAFAFA;
+      box-shadow:0 6px 20px -8px rgba(59,130,246,.5);
+    }
+    .nav-item.active svg { color:#60A5FA; }
+
+    /* Desktop header hidden on mobile — use topbar */
+    header.desktop-header { display:none; }
+    /* Mobile page header inside main */
+    .mobile-page-head { padding:18px 18px 8px; }
+    .mobile-page-head h1 { font-size:22px; font-weight:600; letter-spacing:-.02em; }
+    .mobile-page-head p { font-size:13px; color:#A3A3A3; margin-top:4px; line-height:1.4; }
+    section#view { padding:14px 16px 32px !important; }
+
     .edit-grid { grid-template-columns: 1fr; }
     .edit-grid > .edit-thumbs { max-height:120px !important; flex-direction:row !important; overflow-x:auto; overflow-y:hidden; padding-bottom:4px; }
     .edit-grid > .edit-thumbs .edit-page-thumb { flex-shrink:0; width:90px; }
     .edit-tool-btn span { display:none; }
     .edit-tool-btn { padding:10px; }
-    h1#tool-title { font-size:22px !important; }
-    #tool-desc { font-size:13px !important; }
-    header.sticky { padding:14px 16px !important; }
-    section#view { padding:16px !important; }
     input[type="color"] { width:38px; height:32px; }
-    .card { border-radius:10px; }
+    .card { border-radius:12px; }
     .toast { max-width: calc(100vw - 32px); }
-    #toasts { left:16px; right:16px; max-width:none; }
+    #toasts { left:16px; right:16px; max-width:none; top:auto; bottom:16px; }
+
+    #install-btn { width:100%; margin-top:20px !important; padding:14px !important; font-size:14px !important; border-radius:12px !important; }
   }
   @media (max-width: 480px) {
-    .dropzone { padding:24px 16px !important; }
+    .dropzone { padding:28px 16px !important; }
+    .sidebar-nav { grid-template-columns:1fr 1fr; }
+  }
+  @media (min-width: 900px) {
+    .mobile-page-head { display:none; }
   }
 </style>
 </head>
@@ -140,11 +215,30 @@
 <!-- Toast container -->
 <div id="toasts" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm"></div>
 
+<!-- Mobile top bar -->
+<div class="mobile-topbar">
+  <button class="mobile-menu-btn" id="menu-btn" aria-label="Open menu">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>
+  </button>
+  <div class="mobile-brand">
+    <div class="logo">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+    </div>
+    <div class="min-w-0">
+      <div class="name truncate">PDF Toolkit</div>
+      <div class="sub">Client-side · Private</div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile drawer backdrop -->
+<div class="mobile-backdrop" id="backdrop"></div>
+
 <div class="flex min-h-screen">
-  <!-- Sidebar -->
+  <!-- Sidebar / Drawer -->
   <aside class="sidebar w-[240px] shrink-0 border-r border-brd bg-bg p-5 flex flex-col gap-6">
     <div class="sidebar-title flex items-center gap-2 px-2">
-      <div class="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#3B82F6,#60A5FA);box-shadow:0 4px 14px -2px rgba(59,130,246,.5);">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
       </div>
       <div>
@@ -158,13 +252,37 @@
 
   <!-- Main -->
   <main class="main flex-1 min-w-0">
-    <header class="sticky top-0 z-30 bg-bg/80 backdrop-blur border-b border-brd px-6 md:px-10 py-6">
+    <header class="desktop-header sticky top-0 z-30 bg-bg/80 backdrop-blur border-b border-brd px-6 md:px-10 py-6">
       <h1 id="tool-title" class="text-[28px] md:text-[32px] font-semibold tracking-tight leading-tight">Merge PDF</h1>
       <p id="tool-desc" class="text-muted text-[15px] mt-1">Combine multiple PDFs into one document.</p>
     </header>
+    <div class="mobile-page-head">
+      <h1 id="tool-title-m">Merge PDF</h1>
+      <p id="tool-desc-m">Combine multiple PDFs into one document.</p>
+    </div>
     <section id="view" class="px-6 md:px-10 py-8"></section>
   </main>
 </div>
+
+<script>
+  // Mobile drawer toggle
+  (function(){
+    const btn = document.getElementById('menu-btn');
+    const bd  = document.getElementById('backdrop');
+    const sb  = document.querySelector('aside.sidebar');
+    function close(){ sb.classList.remove('open'); bd.classList.remove('open'); }
+    function open(){ sb.classList.add('open'); bd.classList.add('open'); }
+    btn?.addEventListener('click', ()=> sb.classList.contains('open') ? close() : open());
+    bd?.addEventListener('click', close);
+    // Close after picking a tool
+    document.addEventListener('click', (e)=>{
+      if (e.target.closest && e.target.closest('.nav-item') && window.matchMedia('(max-width:899px)').matches) {
+        setTimeout(close, 60);
+      }
+    });
+    window.addEventListener('resize', ()=>{ if (window.innerWidth >= 900) close(); });
+  })();
+</script>
 
 <script type="module">
 import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
@@ -292,6 +410,8 @@ function switchTool(id) {
   const t = TOOLS.find(x=>x.id===id);
   titleEl.textContent = t.name;
   descEl.textContent = t.desc;
+  const tm = document.getElementById('tool-title-m'); if (tm) tm.textContent = t.name;
+  const dm = document.getElementById('tool-desc-m'); if (dm) dm.textContent = t.desc;
   renderNav();
   renderTool();
 }

@@ -1880,14 +1880,14 @@ function renderResize() {
         </div>
         <div class="md:col-span-2 flex flex-col gap-1">
           <label class="text-[13px] text-muted">Fit content</label>
-          <div class="flex gap-2">
+          <div class="flex gap-2 flex-wrap">
             <button class="chip ${state.fit==='contain'?'active':''}" data-fit="contain">Contain (fit inside)</button>
             <button class="chip ${state.fit==='cover'?'active':''}" data-fit="cover">Cover (fill)</button>
             <button class="chip ${state.fit==='stretch'?'active':''}" data-fit="stretch">Stretch</button>
           </div>
         </div>`;
-      panel.querySelector('#preset').onchange=e=>{ state.preset=e.target.value; };
-      panel.querySelector('#orient').onchange=e=>{ state.orient=e.target.value; };
+      panel.querySelector('#preset').onchange=e=>{ state.preset=e.target.value; renderPreview(); };
+      panel.querySelector('#orient').onchange=e=>{ state.orient=e.target.value; renderPreview(); };
       panel.querySelectorAll('[data-fit]').forEach(b=>b.onclick=()=>{ state.fit=b.dataset.fit; mount(); });
     } else {
       panel.innerHTML=`
@@ -1900,15 +1900,81 @@ function renderResize() {
           <div class="text-[12px] text-muted">50% halves each dimension. 200% doubles it.</div>
         </div>`;
       const sc=panel.querySelector('#sc'), scv=panel.querySelector('#scv');
-      sc.oninput=()=>{ state.scale=+sc.value; scv.textContent=state.scale+'%'; };
+      let rafId=null;
+      sc.oninput=()=>{ state.scale=+sc.value; scv.textContent=state.scale+'%'; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(renderPreview); };
     }
     root.appendChild(panel);
+
+    // Preview card
+    const prev=document.createElement('div'); prev.className='card p-4'; prev.id='resize-preview';
+    prev.innerHTML=`<div class="text-[13px] text-muted mb-3 font-medium">Preview</div><div id="resize-preview-body" class="flex items-center justify-center py-4 text-[12px] text-muted">Rendering…</div>`;
+    root.appendChild(prev);
+    renderPreview();
 
     const bar=document.createElement('div'); bar.className='flex justify-end';
     const go=document.createElement('button'); go.className='btn-primary px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2';
     go.innerHTML=`${icons.resize} Resize PDF`; go.onclick=doResize;
     bar.appendChild(go); root.appendChild(bar);
   }
+
+  let previewToken=0;
+  async function renderPreview() {
+    const body=root.querySelector('#resize-preview-body'); if(!body) return;
+    const my=++previewToken;
+    try {
+      const page=await state.pdfjs.getPage(1);
+      if(my!==previewToken) return;
+      const srcVp=page.getViewport({scale:1});
+      const srcW=srcVp.width, srcH=srcVp.height;
+      let tw, th;
+      if (state.mode==='preset') {
+        let [w,h]=PAGE_SIZES[state.preset];
+        if (state.orient==='landscape') [w,h]=[h,w];
+        tw=w; th=h;
+      } else { const s=state.scale/100; tw=srcW*s; th=srcH*s; }
+      const maxDim=Math.min(220, Math.max(140, (body.clientWidth||400)/3));
+      const s=maxDim/Math.max(srcW,srcH,tw,th);
+
+      let sx=1, sy=1, ox=0, oy=0;
+      if (state.mode==='scale') { sx=sy=state.scale/100; }
+      else if (state.fit==='stretch') { sx=tw/srcW; sy=th/srcH; }
+      else if (state.fit==='contain') { sx=sy=Math.min(tw/srcW, th/srcH); ox=(tw-srcW*sx)/2; oy=(th-srcH*sy)/2; }
+      else { sx=sy=Math.max(tw/srcW, th/srcH); ox=(tw-srcW*sx)/2; oy=(th-srcH*sy)/2; }
+
+      body.innerHTML='';
+      const row=document.createElement('div'); row.className='flex items-end gap-4 md:gap-6 justify-center flex-wrap';
+      // Original
+      const b1=document.createElement('div'); b1.className='flex flex-col items-center gap-2';
+      const cv1=document.createElement('canvas'); cv1.width=Math.max(1,Math.round(srcW*s)); cv1.height=Math.max(1,Math.round(srcH*s));
+      cv1.style.cssText='background:white;border-radius:4px;box-shadow:0 0 0 1px var(--brd);';
+      await page.render({canvasContext:cv1.getContext('2d'), viewport:page.getViewport({scale:s})}).promise;
+      if(my!==previewToken) return;
+      const l1=document.createElement('div'); l1.className='text-[11px] text-muted text-center';
+      l1.innerHTML=`Original<br><span class="text-fg">${Math.round(srcW)}×${Math.round(srcH)}pt</span>`;
+      b1.appendChild(cv1); b1.appendChild(l1);
+
+      const arr=document.createElement('div'); arr.style.cssText='color:var(--muted);font-size:24px;padding-bottom:28px;'; arr.textContent='→';
+
+      // Target
+      const b2=document.createElement('div'); b2.className='flex flex-col items-center gap-2';
+      const frame=document.createElement('div');
+      frame.style.cssText=`position:relative;width:${Math.max(1,tw*s)}px;height:${Math.max(1,th*s)}px;background:#fafafa;border-radius:4px;box-shadow:0 0 0 1px var(--brd);overflow:hidden;`;
+      const inner=document.createElement('canvas');
+      inner.width=Math.max(1,Math.round(srcW*sx*s)); inner.height=Math.max(1,Math.round(srcH*sy*s));
+      inner.style.cssText=`position:absolute;left:${ox*s}px;top:${oy*s}px;`;
+      await page.render({canvasContext:inner.getContext('2d'), viewport:page.getViewport({scale:sx*s})}).promise;
+      if(my!==previewToken) return;
+      frame.appendChild(inner);
+      const l2=document.createElement('div'); l2.className='text-[11px] text-muted text-center';
+      const label=state.mode==='preset'?`${state.preset} · ${state.orient}`:`${state.scale}%`;
+      l2.innerHTML=`${label}<br><span class="text-fg">${Math.round(tw)}×${Math.round(th)}pt</span>`;
+      b2.appendChild(frame); b2.appendChild(l2);
+
+      row.appendChild(b1); row.appendChild(arr); row.appendChild(b2);
+      body.appendChild(row);
+    } catch(e){ if(my===previewToken) body.textContent='Preview tidak tersedia'; }
+  }
+
 
   async function doResize() {
     const proc=processingPanel('Resizing…'); view.innerHTML=''; view.appendChild(proc);
@@ -2177,13 +2243,102 @@ function renderInsert() {
       </div>`;
     root.appendChild(panel);
     panel.querySelector('#pos').onchange=e=>{ state.position=e.target.value; mount(); };
-    panel.querySelector('#pg').oninput=e=>{ state.pageNum=Math.max(1,Math.min(state.basePdfjs.numPages,+e.target.value||1)); };
+    panel.querySelector('#pg').oninput=e=>{ state.pageNum=Math.max(1,Math.min(state.basePdfjs.numPages,+e.target.value||1)); renderInsertPreview(); };
+
+    // Preview strip
+    const prev=document.createElement('div'); prev.className='card p-4'; prev.id='insert-preview';
+    prev.innerHTML=`<div class="text-[13px] text-muted mb-3 font-medium">Preview urutan halaman</div><div id="insert-preview-body" class="text-[12px] text-muted">Rendering…</div>`;
+    root.appendChild(prev);
+    renderInsertPreview();
 
     const bar=document.createElement('div'); bar.className='flex justify-end';
     const go=document.createElement('button'); go.className='btn-primary px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2';
     go.innerHTML=`${icons.insert} Sisipkan PDF`; go.onclick=doInsert;
     bar.appendChild(go); root.appendChild(bar);
   }
+
+  const thumbCache=new Map(); // key: `${type}-${idx}` → canvas
+  async function makeThumb(pdf, key, i, w) {
+    const ck=`${key}-${i}`;
+    if (thumbCache.has(ck)) return thumbCache.get(ck).cloneNode(true);
+    const p=await pdf.getPage(i+1); const vp1=p.getViewport({scale:1}); const s=w/vp1.width;
+    const vp=p.getViewport({scale:s});
+    const cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
+    await p.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+    // Convert to image so we can clone cheaply
+    const img=new Image(); img.src=cv.toDataURL('image/png');
+    img.width=cv.width; img.height=cv.height;
+    thumbCache.set(ck, img);
+    return img.cloneNode(true);
+  }
+
+  let insToken=0;
+  async function renderInsertPreview() {
+    const body=root.querySelector('#insert-preview-body'); if(!body) return;
+    const my=++insToken;
+    if (!state.baseBuf || !state.insBuf) return;
+    const baseN=state.basePdfjs.numPages, insN=state.insPdfjs.numPages;
+    let at;
+    if (state.position==='start') at=0;
+    else if (state.position==='end') at=baseN;
+    else if (state.position==='before') at=Math.max(0,state.pageNum-1);
+    else at=Math.min(baseN,state.pageNum);
+
+    // Truncate base list to keep preview compact
+    const KEEP=6, MAX_INS=8, THUMB_W=48;
+    const beforeIdx=[]; for(let i=0;i<at;i++) beforeIdx.push(i);
+    const afterIdx=[]; for(let i=at;i<baseN;i++) afterIdx.push(i);
+    let compactBefore = beforeIdx.length>KEEP+1 ? [...beforeIdx.slice(0,KEEP),'…'] : beforeIdx;
+    let compactAfter  = afterIdx.length>KEEP+1  ? ['…',...afterIdx.slice(-KEEP)] : afterIdx;
+
+    body.innerHTML='';
+    const strip=document.createElement('div'); strip.style.cssText='display:flex;align-items:center;gap:6px;overflow-x:auto;padding:6px 2px 10px;';
+    body.appendChild(strip);
+
+    const addThumb = async (pdf, key, i) => {
+      const w=document.createElement('div'); w.style.cssText='display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;';
+      const img=await makeThumb(pdf, key, i, THUMB_W);
+      if(my!==insToken) return null;
+      img.style.cssText='background:white;border-radius:3px;box-shadow:0 0 0 1px var(--brd);display:block;';
+      const lbl=document.createElement('div'); lbl.style.cssText='font-size:10px;color:var(--muted);'; lbl.textContent=(i+1);
+      w.appendChild(img); w.appendChild(lbl);
+      return w;
+    };
+    const addEllipsis = () => { const d=document.createElement('div'); d.style.cssText='color:var(--muted);padding:0 2px;font-size:14px;align-self:center;'; d.textContent='…'; return d; };
+
+    for (const it of compactBefore) {
+      if (it==='…') strip.appendChild(addEllipsis());
+      else { const el=await addThumb(state.basePdfjs,'base',it); if(my!==insToken)return; if(el)strip.appendChild(el); }
+    }
+
+    // Insert block
+    const block=document.createElement('div');
+    block.style.cssText='display:flex;align-items:center;gap:4px;padding:6px;background:rgba(59,130,246,0.12);border:1px dashed #3B82F6;border-radius:8px;flex-shrink:0;';
+    const showIns=Math.min(insN, MAX_INS);
+    for (let i=0;i<showIns;i++) {
+      const el=await addThumb(state.insPdfjs,'ins',i); if(my!==insToken)return; if(el)block.appendChild(el);
+    }
+    if (insN>showIns) {
+      const more=document.createElement('div'); more.style.cssText='align-self:center;font-size:11px;color:#3B82F6;padding:0 4px;font-weight:600;'; more.textContent=`+${insN-showIns}`;
+      block.appendChild(more);
+    }
+    strip.appendChild(block);
+
+    for (const it of compactAfter) {
+      if (it==='…') strip.appendChild(addEllipsis());
+      else { const el=await addThumb(state.basePdfjs,'base',it); if(my!==insToken)return; if(el)strip.appendChild(el); }
+    }
+
+    const summary=document.createElement('div'); summary.className='text-[12px] text-muted';
+    let posLabel='';
+    if (state.position==='start') posLabel='di awal dokumen';
+    else if (state.position==='end') posLabel='di akhir dokumen';
+    else if (state.position==='before') posLabel=`sebelum halaman ${state.pageNum}`;
+    else posLabel=`setelah halaman ${state.pageNum}`;
+    summary.innerHTML=`<span class="text-fg font-medium">${insN}</span> halaman disisipkan ${posLabel}. Hasil akhir: <span class="text-fg font-medium">${baseN+insN}</span> halaman total.`;
+    body.appendChild(summary);
+  }
+
 
   async function doInsert() {
     const proc=processingPanel('Menyisipkan halaman…'); view.innerHTML=''; view.appendChild(proc);
